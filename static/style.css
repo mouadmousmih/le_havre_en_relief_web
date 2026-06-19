@@ -1,0 +1,303 @@
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #F4F4F5;
+  color: #1C1C1E;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+header {
+  background: #fff;
+  border-bottom: 1px solid #E4E4E7;
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.header-inner { display: flex; align-items: center; gap: 12px; }
+
+header h1 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #111;
+}
+
+header p {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 2px;
+}
+
+/* ── Layout ── */
+main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 340px;
+  min-width: 340px;
+  background: #fff;
+  border-right: 1px solid #E4E4E7;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+/* ── Form blocks ── */
+.form-block { display: flex; flex-direction: column; gap: 8px; }
+
+.field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #71717A;
+}
+
+.input-row { display: flex; gap: 8px; }
+
+#address-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid #D4D4D8;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s;
+  color: #111;
+}
+#address-input:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px #DBEAFE; }
+
+#search-btn {
+  padding: 9px 14px;
+  background: #F4F4F5;
+  border: 1px solid #D4D4D8;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  color: #444;
+  transition: background 0.15s;
+}
+#search-btn:hover { background: #E4E4E7; }
+
+.address-result {
+  font-size: 0.78rem;
+  color: #52525B;
+  line-height: 1.5;
+}
+
+/* ── Radius ── */
+.radius-group { display: flex; gap: 8px; }
+
+.radius-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 0;
+  border: 1.5px solid #D4D4D8;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: #444;
+  transition: all 0.15s;
+  user-select: none;
+}
+.radius-option input { display: none; }
+.radius-option:has(input:checked) {
+  border-color: #3B82F6;
+  background: #EFF6FF;
+  color: #2563EB;
+  font-weight: 600;
+}
+.radius-option:hover:not(:has(input:checked)) { background: #F9F9F9; }
+
+/* ── Generate button ── */
+.btn-generate {
+  padding: 11px;
+  background: #18181B;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn-generate:hover:not(:disabled) { background: #27272A; }
+.btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Progress ── */
+.progress-block { display: flex; flex-direction: column; gap: 10px; }
+
+.steps-track {
+  display: flex;
+  gap: 4px;
+}
+
+.step {
+  flex: 1;
+  font-size: 0.65rem;
+  text-align: center;
+  color: #A1A1AA;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #E4E4E7;
+  transition: color 0.3s, border-color 0.3s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step.active  { color: #3B82F6; border-color: #3B82F6; font-weight: 600; }
+.step.done    { color: #16A34A; border-color: #16A34A; }
+
+.progress-bar-wrap {
+  height: 4px;
+  background: #E4E4E7;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #3B82F6;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+#progress-msg {
+  font-size: 0.82rem;
+  color: #71717A;
+  min-height: 1.2em;
+}
+
+/* ── Download ── */
+.download-block { display: flex; flex-direction: column; gap: 8px; }
+
+.btn-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  background: #fff;
+  color: #18181B;
+  border: 1.5px solid #D4D4D8;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-view:hover { background: #F4F4F5; border-color: #A1A1AA; }
+
+.btn-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  background: #16A34A;
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.btn-download:hover { background: #15803D; }
+
+.file-info {
+  font-size: 0.78rem;
+  color: #A1A1AA;
+  text-align: center;
+}
+
+/* ── Error ── */
+.error-block {
+  padding: 10px 12px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 7px;
+}
+#error-msg { font-size: 0.85rem; color: #DC2626; line-height: 1.5; }
+
+/* ── Viewer 3D ── */
+.viewer-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(3px);
+}
+
+.viewer-container {
+  position: relative;
+  width: 88vw;
+  height: 82vh;
+  background: #111827;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+
+#viewer-canvas {
+  flex: 1;
+  width: 100%;
+  display: block;
+}
+
+.viewer-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 10;
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.viewer-close:hover { background: rgba(255,255,255,0.2); }
+
+.viewer-hint {
+  padding: 10px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.3);
+  flex-shrink: 0;
+}
+
+/* ── Map ── */
+#map { flex: 1; }
+
+/* ── Utility ── */
+.hidden { display: none !important; }

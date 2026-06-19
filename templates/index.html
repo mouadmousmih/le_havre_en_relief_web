@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maquette Tactile en Relief</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+      "three/examples/jsm/loaders/STLLoader.js": "https://unpkg.com/three@0.158.0/examples/jsm/loaders/STLLoader.js",
+      "three/examples/jsm/controls/OrbitControls.js": "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>Maquette Tactile en Relief</h1>
+        <p>Génère un fichier STL prêt à imprimer depuis n'importe quelle adresse</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ── Panneau gauche : formulaire ── -->
+    <aside class="sidebar">
+
+      <div class="form-block">
+        <label class="field-label">Adresse</label>
+        <div class="input-row">
+          <input id="address-input" type="text"
+                 placeholder="Ex: Place de la Mairie, Le Havre"
+                 autocomplete="off">
+          <button id="search-btn">Chercher</button>
+        </div>
+        <p id="address-result" class="address-result hidden"></p>
+      </div>
+
+      <div class="form-block">
+        <label class="field-label">Rayon de la zone</label>
+        <div class="radius-group">
+          <label class="radius-option">
+            <input type="radio" name="radius" value="100">
+            <span>100 m</span>
+          </label>
+          <label class="radius-option">
+            <input type="radio" name="radius" value="200" checked>
+            <span>200 m</span>
+          </label>
+          <label class="radius-option">
+            <input type="radio" name="radius" value="500">
+            <span>500 m</span>
+          </label>
+        </div>
+      </div>
+
+      <button id="generate-btn" class="btn-generate" disabled>
+        Générer la maquette
+      </button>
+
+      <!-- Progression -->
+      <div id="progress-block" class="progress-block hidden">
+        <div class="steps-track">
+          <div class="step" data-step="1">Bbox</div>
+          <div class="step" data-step="2">OSM</div>
+          <div class="step" data-step="3">Projection</div>
+          <div class="step" data-step="4">Routes</div>
+          <div class="step" data-step="5">Maillage</div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div id="progress-bar"></div>
+        </div>
+        <p id="progress-msg"></p>
+      </div>
+
+      <!-- Téléchargement -->
+      <div id="download-block" class="download-block hidden">
+        <button id="view-btn" class="btn-view" onclick="window.openViewer()">
+          &#128065;&nbsp; Regarder la maquette
+        </button>
+        <a id="download-link" class="btn-download" href="#">
+          ⬇&nbsp; Télécharger le STL
+        </a>
+        <p id="file-info" class="file-info"></p>
+      </div>
+
+      <!-- Erreur -->
+      <div id="error-block" class="error-block hidden">
+        <p id="error-msg"></p>
+      </div>
+
+    </aside>
+
+    <!-- ── Carte Leaflet ── -->
+    <div id="map"></div>
+
+  </main>
+
+  <!-- Modale viewer 3D -->
+  <div id="viewer-modal" class="viewer-modal hidden">
+    <div class="viewer-overlay" onclick="window.closeViewer()"></div>
+    <div class="viewer-container">
+      <button class="viewer-close" onclick="window.closeViewer()">✕ Fermer</button>
+      <canvas id="viewer-canvas"></canvas>
+      <p class="viewer-hint">Glisser pour tourner &nbsp;·&nbsp; Molette pour zoomer &nbsp;·&nbsp; Clic droit pour déplacer</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='viewer.js') }}"></script>
+</body>
+</html>

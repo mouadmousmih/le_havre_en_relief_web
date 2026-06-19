@@ -1,0 +1,7 @@
+flask>=2.3.0
+gunicorn>=21.0.0
+trimesh>=4.0.0
+manifold3d>=2.4.0
+shapely>=2.0.0
+pyproj>=3.6.0
+numpy>=1.24.0
