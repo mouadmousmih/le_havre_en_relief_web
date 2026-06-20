@@ -328,8 +328,8 @@ main {
 
 /* ── Responsive mobile ── */
 @media (max-width: 768px) {
-  /* Fixer body à l'écran — pas de scroll de page, scroll interne */
-  body { height: 100dvh; overflow: hidden; }
+  /* Page scrollable — les boutons poussent la carte vers le bas */
+  body { height: auto; min-height: 100dvh; overflow-y: auto; }
 
   /* Header compact */
   header      { height: auto; padding: 8px 14px; }
@@ -339,14 +339,9 @@ main {
   .header-sep  { height: 22px; }
 
   /* Colonne : sidebar au-dessus, carte en dessous */
-  main {
-    flex-direction: column;
-    overflow: hidden;
-    height: 100%;
-    min-height: 0;
-  }
+  main { flex-direction: column; overflow: visible; }
 
-  /* Sidebar scrollable, occupe max la moitié de l'écran */
+  /* Sidebar grandit librement avec son contenu */
   .sidebar {
     width: 100%;
     min-width: unset;
@@ -354,14 +349,11 @@ main {
     border-bottom: 1px solid #E4E4E7;
     padding: 12px 14px;
     gap: 12px;
-    flex-shrink: 0;
-    max-height: 48dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-y: visible;
   }
 
-  /* Carte occupe l'espace restant */
-  #map { flex: 1; min-height: 160px; }
+  /* Carte hauteur fixe, toujours visible en dessous */
+  #map { flex: none; height: 52vw; min-height: 240px; }
 
   /* Cibles tactiles agrandies (min 44px iOS HIG) */
   #search-btn,
