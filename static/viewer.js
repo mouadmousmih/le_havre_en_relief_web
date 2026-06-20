@@ -1,96 +1,220 @@
-// Imports ES module directs — pas d'importmap, fonctionne sur desktop ET mobile moderne
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
-import { STLLoader }     from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/STLLoader.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+(function () {
+  'use strict';
 
-let renderer = null, scene, camera, controls, currentMesh = null, animId = null;
+  /* ── État GL ── */
+  var gl = null, prog, posBuf, normBuf, numVerts = 0;
+  var rotX = 0.4, rotY = 0, dist = 3.5;
+  var drag = null, pinch = null;
 
-function initRenderer(canvas) {
-  const w = canvas.parentElement.clientWidth  || window.innerWidth;
-  const h = canvas.parentElement.clientHeight || window.innerHeight;
+  /* ── Matrices 4×4 column-major (format WebGL) ── */
+  function M4() { return new Float32Array(16); }
+  function ident(m) { m.fill(0); m[0]=m[5]=m[10]=m[15]=1; return m; }
 
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(w, h, false);
-  renderer.setClearColor(0x111827);
-
-  scene  = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100000);
-
-  scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-  const d1 = new THREE.DirectionalLight(0xffffff, 0.85);
-  d1.position.set(1, 3, 2);
-  scene.add(d1);
-  const d2 = new THREE.DirectionalLight(0x6699ff, 0.25);
-  d2.position.set(-2, -1, -2);
-  scene.add(d2);
-
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.06;
-  controls.rotateSpeed   = 0.7;
-  controls.zoomSpeed     = 1.2;
-
-  window.addEventListener('resize', fitCanvas);
-}
-
-function fitCanvas() {
-  if (!renderer) return;
-  const canvas    = document.getElementById('viewer-canvas');
-  const container = canvas.parentElement;
-  const w = container.clientWidth  || window.innerWidth;
-  const h = container.clientHeight || window.innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-}
-
-function loadSTL(url) {
-  if (currentMesh) {
-    scene.remove(currentMesh);
-    currentMesh.geometry.dispose();
-    currentMesh = null;
-  }
-  new STLLoader().load(url, (geo) => {
-    geo.computeBoundingBox();
-    const center = new THREE.Vector3();
-    geo.boundingBox.getCenter(center);
-    geo.translate(-center.x, -center.y, -center.z);
-
-    currentMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
-      color: 0xD4D4D8, specular: 0x555555, shininess: 35, side: THREE.DoubleSide,
-    }));
-    scene.add(currentMesh);
-
-    const size = new THREE.Vector3();
-    geo.boundingBox.getSize(size);
-    const d = Math.max(size.x, size.y, size.z) * 1.6;
-    camera.position.set(0, d * 0.6, d);
-    controls.target.set(0, 0, 0);
-    controls.update();
-  });
-}
-
-function animate() {
-  animId = requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-}
-
-window.openViewer = function () {
-  const modal = document.getElementById('viewer-modal');
-  modal.classList.remove('hidden');
-  setTimeout(() => {
-    const canvas = document.getElementById('viewer-canvas');
-    if (!renderer) {
-      initRenderer(canvas);
-      animate();
+  function mul4(a, b) {
+    var o=M4(), i, j, k, s;
+    for (i=0;i<4;i++) for (j=0;j<4;j++) {
+      s=0; for(k=0;k<4;k++) s+=a[k*4+i]*b[j*4+k];
+      o[j*4+i]=s;
     }
-    fitCanvas();
-    if (window._stlViewUrl) loadSTL(window._stlViewUrl);
-  }, 80);
-};
+    return o;
+  }
 
-window.closeViewer = function () {
-  document.getElementById('viewer-modal').classList.add('hidden');
-};
+  function perspective(fov, asp, n, f) {
+    var m=M4(), t=1/Math.tan(fov*0.5);
+    m.fill(0); m[0]=t/asp; m[5]=t;
+    m[10]=(f+n)/(n-f); m[11]=-1; m[14]=2*f*n/(n-f);
+    return m;
+  }
+
+  /* Rotation combinée Rx*Ry (orbit autour de l'objet) */
+  function rotMat(rx, ry) {
+    var cx=Math.cos(rx), sx=Math.sin(rx), cy=Math.cos(ry), sy=Math.sin(ry);
+    var m=M4();
+    m[0]=cy;      m[4]=0;  m[8]=sy;      m[12]=0;
+    m[1]=sx*sy;   m[5]=cx; m[9]=-sx*cy;  m[13]=0;
+    m[2]=-cx*sy;  m[6]=sx; m[10]=cx*cy;  m[14]=0;
+    m[3]=0;       m[7]=0;  m[11]=0;      m[15]=1;
+    return m;
+  }
+
+  /* ── Parseur STL binaire ── */
+  function parseSTL(ab) {
+    var dv=new DataView(ab), i, v, o, vo, p;
+    if (ab.byteLength < 84) return null;
+    var n=dv.getUint32(80, true);
+    if (ab.byteLength < 84+n*50) return null;
+
+    var pos=new Float32Array(n*9), norm=new Float32Array(n*9);
+    var mi=[1e9,1e9,1e9], ma=[-1e9,-1e9,-1e9];
+    var nx, ny, nz, x, y, z;
+
+    for (i=0; i<n; i++) {
+      o=84+i*50;
+      nx=dv.getFloat32(o,true); ny=dv.getFloat32(o+4,true); nz=dv.getFloat32(o+8,true);
+      for (v=0; v<3; v++) {
+        vo=o+12+v*12; p=i*9+v*3;
+        x=dv.getFloat32(vo,true); y=dv.getFloat32(vo+4,true); z=dv.getFloat32(vo+8,true);
+        pos[p]=x; pos[p+1]=y; pos[p+2]=z;
+        norm[p]=nx; norm[p+1]=ny; norm[p+2]=nz;
+        if(x<mi[0])mi[0]=x; if(x>ma[0])ma[0]=x;
+        if(y<mi[1])mi[1]=y; if(y>ma[1])ma[1]=y;
+        if(z<mi[2])mi[2]=z; if(z>ma[2])ma[2]=z;
+      }
+    }
+
+    var cx=(mi[0]+ma[0])/2, cy=(mi[1]+ma[1])/2, cz=(mi[2]+ma[2])/2;
+    var sc=2/Math.max(ma[0]-mi[0], ma[1]-mi[1], ma[2]-mi[2], 1e-6);
+    for (i=0; i<pos.length; i+=3) {
+      pos[i]=(pos[i]-cx)*sc; pos[i+1]=(pos[i+1]-cy)*sc; pos[i+2]=(pos[i+2]-cz)*sc;
+    }
+    return { pos:pos, norm:norm, count:n };
+  }
+
+  /* ── Shaders GLSL ── */
+  var VERT =
+    'attribute vec3 aP;attribute vec3 aN;uniform mat4 uMVP;varying vec3 vN;'+
+    'void main(){gl_Position=uMVP*vec4(aP,1.0);vN=aN;}';
+  var FRAG =
+    'precision mediump float;varying vec3 vN;'+
+    'void main(){'+
+    '  vec3 n=normalize(vN);'+
+    '  float d=max(dot(n,normalize(vec3(1.0,2.0,2.5))),0.0)*.72'+
+    '          +max(dot(n,normalize(vec3(-1.5,-1.0,-1.5))),0.0)*.15+.18;'+
+    '  gl_FragColor=vec4(vec3(.82,.82,.85)*d,1.0);}';
+
+  /* ── Init WebGL ── */
+  function sh(type, src) {
+    var s=gl.createShader(type);
+    gl.shaderSource(s,src); gl.compileShader(s); return s;
+  }
+
+  function initGL(canvas) {
+    gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return false;
+    prog=gl.createProgram();
+    gl.attachShader(prog,sh(gl.VERTEX_SHADER,VERT));
+    gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FRAG));
+    gl.linkProgram(prog); gl.useProgram(prog);
+    posBuf=gl.createBuffer(); normBuf=gl.createBuffer();
+    gl.enable(gl.DEPTH_TEST);
+    gl.clearColor(0.067,0.094,0.153,1);
+    return true;
+  }
+
+  function bindBuf(buf, name) {
+    var loc=gl.getAttribLocation(prog,name);
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc,3,gl.FLOAT,false,0,0);
+  }
+
+  function upload(data) {
+    gl.bindBuffer(gl.ARRAY_BUFFER,posBuf);
+    gl.bufferData(gl.ARRAY_BUFFER,data.pos,gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER,normBuf);
+    gl.bufferData(gl.ARRAY_BUFFER,data.norm,gl.STATIC_DRAW);
+    numVerts=data.count*3;
+  }
+
+  /* ── Rendu ── */
+  function render() {
+    var c=gl.canvas;
+    gl.viewport(0,0,c.width,c.height);
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    if (!numVerts) return;
+
+    var rot=rotMat(rotX,rotY);
+    var t=ident(M4()); t[14]=-dist;          /* translation : caméra à -dist sur Z */
+    var view=mul4(t,rot);
+    var mvp=mul4(perspective(Math.PI/4,c.width/c.height,0.01,1e4),view);
+
+    gl.uniformMatrix4fv(gl.getUniformLocation(prog,'uMVP'),false,mvp);
+    bindBuf(posBuf,'aP'); bindBuf(normBuf,'aN');
+    gl.drawArrays(gl.TRIANGLES,0,numVerts);
+  }
+
+  function loop() { requestAnimationFrame(loop); render(); }
+
+  /* ── Contrôles souris + tactile ── */
+  function attachControls(canvas) {
+    canvas.addEventListener('mousedown', function(e){ drag={x:e.clientX,y:e.clientY}; });
+    window.addEventListener('mousemove', function(e){
+      if (!drag) return;
+      rotY+=(e.clientX-drag.x)*.008; rotX+=(e.clientY-drag.y)*.008;
+      drag={x:e.clientX,y:e.clientY};
+    });
+    window.addEventListener('mouseup', function(){ drag=null; });
+    canvas.addEventListener('wheel', function(e){
+      e.preventDefault(); dist=Math.max(0.5,dist+e.deltaY*.005);
+    },{passive:false});
+
+    canvas.addEventListener('touchstart', function(e){
+      e.preventDefault();
+      if (e.touches.length===1) {
+        drag={x:e.touches[0].clientX,y:e.touches[0].clientY};
+      } else if (e.touches.length===2) {
+        pinch={d:Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                             e.touches[0].clientY-e.touches[1].clientY), d0:dist};
+        drag=null;
+      }
+    },{passive:false});
+
+    canvas.addEventListener('touchmove', function(e){
+      e.preventDefault();
+      if (e.touches.length===1&&drag) {
+        rotY+=(e.touches[0].clientX-drag.x)*.012;
+        rotX+=(e.touches[0].clientY-drag.y)*.012;
+        drag={x:e.touches[0].clientX,y:e.touches[0].clientY};
+      } else if (e.touches.length===2&&pinch) {
+        var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                         e.touches[0].clientY-e.touches[1].clientY);
+        dist=Math.max(0.5,pinch.d0*(pinch.d/d));
+      }
+    },{passive:false});
+
+    canvas.addEventListener('touchend', function(){ drag=null; pinch=null; });
+  }
+
+  /* ── Taille canvas = taille CSS calculée par le navigateur ── */
+  function fitCanvas() {
+    var canvas=document.getElementById('viewer-canvas');
+    if (!canvas) return;
+    var rect=canvas.getBoundingClientRect();
+    canvas.width  = Math.round(rect.width)  || window.innerWidth;
+    canvas.height = Math.round(rect.height) || 300;
+    if (gl) gl.viewport(0,0,canvas.width,canvas.height);
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  /* ── API globale ── */
+  window.openViewer = function() {
+    document.getElementById('viewer-modal').classList.remove('hidden');
+    setTimeout(function() {
+      var canvas=document.getElementById('viewer-canvas');
+      if (!gl) {
+        if (!initGL(canvas)) {
+          document.getElementById('viewer-modal').classList.add('hidden');
+          return;
+        }
+        attachControls(canvas);
+        loop();
+      }
+      fitCanvas();
+      if (window._stlViewUrl) {
+        numVerts=0;
+        fetch(window._stlViewUrl)
+          .then(function(r){ return r.arrayBuffer(); })
+          .then(function(ab){
+            var data=parseSTL(ab);
+            if (data) { dist=3.5; rotX=0.4; rotY=0; upload(data); }
+          })
+          .catch(function(e){ console.error('viewer:', e); });
+      }
+    }, 100);
+  };
+
+  window.closeViewer = function() {
+    document.getElementById('viewer-modal').classList.add('hidden');
+  };
+
+})();
