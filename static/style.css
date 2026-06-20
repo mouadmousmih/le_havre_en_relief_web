@@ -326,43 +326,54 @@ main {
 /* ── Utility ── */
 .hidden { display: none !important; }
 
-/* ── Responsive ── */
+/* ── Responsive mobile ── */
 @media (max-width: 768px) {
-  /* Header plus compact */
-  header { height: auto; padding: 10px 14px; }
-  header h1 { font-size: 0.9rem; }
-  header p  { display: none; }
-  .header-logo { height: 32px; }
-  .header-sep  { height: 26px; }
+  /* Fixer body à l'écran — pas de scroll de page, scroll interne */
+  body { height: 100dvh; overflow: hidden; }
 
-  /* Layout en colonne : formulaire en haut, carte en bas */
+  /* Header compact */
+  header      { height: auto; padding: 8px 14px; }
+  header h1   { font-size: 0.88rem; }
+  header p    { display: none; }
+  .header-logo { height: 28px; }
+  .header-sep  { height: 22px; }
+
+  /* Colonne : sidebar au-dessus, carte en dessous */
   main {
     flex-direction: column;
-    overflow: visible;
+    overflow: hidden;
+    height: 100%;
     min-height: 0;
   }
 
+  /* Sidebar scrollable, occupe max la moitié de l'écran */
   .sidebar {
     width: 100%;
     min-width: unset;
     border-right: none;
     border-bottom: 1px solid #E4E4E7;
-    overflow-y: visible;
-    padding: 16px;
-    gap: 16px;
+    padding: 12px 14px;
+    gap: 12px;
+    flex-shrink: 0;
+    max-height: 48dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  /* Carte en dessous du formulaire, hauteur fixe */
-  #map {
-    flex: none;
-    height: 45vh;
-    min-height: 220px;
-  }
+  /* Carte occupe l'espace restant */
+  #map { flex: 1; min-height: 160px; }
 
-  /* Rayon : boutons plus petits */
-  .radius-option { font-size: 0.82rem; padding: 8px 0; }
+  /* Cibles tactiles agrandies (min 44px iOS HIG) */
+  #search-btn,
+  .btn-generate,
+  .btn-view,
+  .btn-download { min-height: 44px; font-size: 0.9rem; }
 
-  /* Modale viewer plein écran */
+  #address-input { padding: 10px 12px; font-size: 0.92rem; }
+
+  .radius-option { padding: 10px 0; font-size: 0.85rem; min-height: 42px; }
+
+  /* Viewer plein écran */
   .viewer-container {
     width: 100vw;
     height: 100dvh;
