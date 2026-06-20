@@ -6,20 +6,14 @@
   <title>Maquette Tactile en Relief</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
-      "three/examples/jsm/loaders/STLLoader.js": "https://unpkg.com/three@0.158.0/examples/jsm/loaders/STLLoader.js",
-      "three/examples/jsm/controls/OrbitControls.js": "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js"
-    }
-  }
-  </script>
 </head>
 <body>
 
   <header>
     <div class="header-inner">
+      <img src="{{ url_for('static', filename='logo-univ.jpg') }}"
+           alt="Université Le Havre Normandie" class="header-logo">
+      <div class="header-sep"></div>
       <div>
         <h1>Maquette Tactile en Relief</h1>
         <p>Génère un fichier STL prêt à imprimer depuis n'importe quelle adresse</p>
@@ -38,7 +32,10 @@
           <input id="address-input" type="text"
                  placeholder="Ex: Place de la Mairie, Le Havre"
                  autocomplete="off">
-          <button id="search-btn">Chercher</button>
+          <button id="search-btn">
+            <i data-lucide="search"></i>
+            Chercher
+          </button>
         </div>
         <p id="address-result" class="address-result hidden"></p>
       </div>
@@ -62,6 +59,7 @@
       </div>
 
       <button id="generate-btn" class="btn-generate" disabled>
+        <i data-lucide="cube"></i>
         Générer la maquette
       </button>
 
@@ -83,10 +81,12 @@
       <!-- Téléchargement -->
       <div id="download-block" class="download-block hidden">
         <button id="view-btn" class="btn-view" onclick="window.openViewer()">
-          &#128065;&nbsp; Regarder la maquette
+          <i data-lucide="eye"></i>
+          Regarder la maquette
         </button>
         <a id="download-link" class="btn-download" href="#">
-          ⬇&nbsp; Télécharger le STL
+          <i data-lucide="download"></i>
+          Télécharger le STL
         </a>
         <p id="file-info" class="file-info"></p>
       </div>
@@ -107,13 +107,16 @@
   <div id="viewer-modal" class="viewer-modal hidden">
     <div class="viewer-overlay" onclick="window.closeViewer()"></div>
     <div class="viewer-container">
-      <button class="viewer-close" onclick="window.closeViewer()">✕ Fermer</button>
+      <button class="viewer-close" onclick="window.closeViewer()">
+        <i data-lucide="x"></i> Fermer
+      </button>
       <canvas id="viewer-canvas"></canvas>
       <p class="viewer-hint">Glisser pour tourner &nbsp;·&nbsp; Molette pour zoomer &nbsp;·&nbsp; Clic droit pour déplacer</p>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
   <script type="module" src="{{ url_for('static', filename='viewer.js') }}"></script>
 </body>

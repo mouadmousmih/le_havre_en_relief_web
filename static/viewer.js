@@ -1,8 +1,9 @@
-import * as THREE from 'three';
-import { STLLoader }     from 'three/examples/jsm/loaders/STLLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+// Imports CDN directs — pas besoin d'importmap, compatible tous les mobiles
+import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+import { STLLoader }     from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/STLLoader.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
 
-let renderer = null, scene, camera, controls, mesh = null, animId = null;
+let renderer = null, scene, camera, controls, currentMesh = null, animId = null;
 
 function initRenderer(canvas) {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -10,7 +11,6 @@ function initRenderer(canvas) {
   renderer.setClearColor(0x111827);
 
   scene = new THREE.Scene();
-
   camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100000);
 
   // Éclairage : ambiant doux + deux directionnels pour donner du volume
@@ -23,24 +23,29 @@ function initRenderer(canvas) {
   scene.add(d2);
 
   controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping   = true;
-  controls.dampingFactor   = 0.06;
-  controls.rotateSpeed     = 0.7;
-  controls.zoomSpeed       = 1.2;
+  controls.enableDamping  = true;
+  controls.dampingFactor  = 0.06;
+  controls.rotateSpeed    = 0.7;
+  controls.zoomSpeed      = 1.2;
 
   window.addEventListener('resize', () => fitCanvas(canvas));
 }
 
 function fitCanvas(canvas) {
-  const w = canvas.parentElement.clientWidth;
-  const h = canvas.parentElement.clientHeight;
+  const container = canvas.parentElement;
+  const w = container.clientWidth  || window.innerWidth;
+  const h = container.clientHeight || window.innerHeight * 0.8;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 
 function loadSTL(url) {
-  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
+  if (currentMesh) {
+    scene.remove(currentMesh);
+    currentMesh.geometry.dispose();
+    currentMesh = null;
+  }
 
   const loader = new STLLoader();
   loader.load(url, (geo) => {
@@ -49,12 +54,11 @@ function loadSTL(url) {
     geo.boundingBox.getCenter(center);
     geo.translate(-center.x, -center.y, -center.z);
 
-    mesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
+    currentMesh = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({
       color: 0xD4D4D8, specular: 0x555555, shininess: 35, side: THREE.DoubleSide,
     }));
-    scene.add(mesh);
+    scene.add(currentMesh);
 
-    // Place la caméra pour voir tout l'objet
     const size = new THREE.Vector3();
     geo.boundingBox.getSize(size);
     const d = Math.max(size.x, size.y, size.z) * 1.6;
@@ -70,19 +74,21 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// Exposé globalement pour app.js
 window.openViewer = function () {
-  const modal  = document.getElementById('viewer-modal');
-  const canvas = document.getElementById('viewer-canvas');
+  const modal = document.getElementById('viewer-modal');
   modal.classList.remove('hidden');
 
-  if (!renderer) {
-    initRenderer(canvas);
-    animate();
-  }
-  fitCanvas(canvas);
-
-  if (window._stlViewUrl) loadSTL(window._stlViewUrl);
+  // Double rAF : attend que le navigateur ait calculé le layout
+  // (important sur mobile où la modale était display:none)
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const canvas = document.getElementById('viewer-canvas');
+    if (!renderer) {
+      initRenderer(canvas);
+      animate();
+    }
+    fitCanvas(canvas);
+    if (window._stlViewUrl) loadSTL(window._stlViewUrl);
+  }));
 };
 
 window.closeViewer = function () {

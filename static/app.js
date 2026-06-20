@@ -1,5 +1,8 @@
 'use strict';
 
+// Initialise les icônes Lucide dès que le DOM est prêt
+document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+
 // ── Carte Leaflet ──
 const map = L.map('map', { zoomControl: true }).setView([46.5, 2.3], 5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -52,7 +55,7 @@ function updateZoneRect() {
     color: '#3B82F6', weight: 2,
     fillColor: '#3B82F6', fillOpacity: 0.08,
   }).addTo(map);
-  map.fitBounds(bounds, { padding: [50, 50] });
+  map.fitBounds(bounds, { padding: [80, 80], maxZoom: 15 });
 }
 
 function setStep(stepNum) {
