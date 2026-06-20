@@ -14,6 +14,7 @@ import uuid
 import os
 import urllib.request
 import urllib.parse
+import urllib.error
 from pathlib import Path
 
 from flask import Flask, render_template, request, Response, send_file, jsonify
@@ -76,7 +77,7 @@ def geocode():
 
     url = NOMINATIM_URL + "?" + urllib.parse.urlencode({"q": q, "format": "json", "limit": 1})
     try:
-        req  = urllib.request.Request(url, headers={"User-Agent": "tactile-map-web/1.0"})
+        req  = urllib.request.Request(url, headers={"User-Agent": "tactile-map-web/1.0 (mmousmih@gmail.com)"})
         data = json.loads(urllib.request.urlopen(req, timeout=10).read())
         if not data:
             return jsonify({"found": False, "error": "Adresse introuvable"})
@@ -87,6 +88,10 @@ def geocode():
             "lon"          : float(r["lon"]),
             "display_name" : r.get("display_name", ""),
         })
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            return jsonify({"found": False, "error": "Trop de requêtes — réessaie dans quelques secondes."})
+        return jsonify({"found": False, "error": f"Erreur HTTP {e.code}"})
     except Exception as e:
         return jsonify({"found": False, "error": str(e)})
 
