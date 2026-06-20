@@ -349,19 +349,21 @@ main {
   /* Colonne : sidebar au-dessus, carte en dessous */
   main { flex-direction: column; overflow: visible; }
 
-  /* Sidebar grandit librement avec son contenu */
+  /* Sidebar pleine largeur sur mobile — écrase les valeurs desktop */
   .sidebar {
     width: 100%;
     min-width: unset;
+    max-width: 100%;
     border-right: none;
     border-bottom: 1px solid #E4E4E7;
     padding: 12px 14px;
     gap: 12px;
     overflow-y: visible;
+    overflow-x: hidden;
   }
 
   /* Carte hauteur fixe, toujours visible en dessous */
-  #map { flex: none; height: 52vw; min-height: 240px; }
+  #map { flex: none; height: 52vw; min-height: 240px; overflow: hidden; }
 
   /* Cibles tactiles agrandies (min 44px iOS HIG) */
   #search-btn,
