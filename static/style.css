@@ -369,7 +369,8 @@ main {
   .btn-view,
   .btn-download { min-height: 44px; font-size: 0.9rem; }
 
-  #address-input { padding: 10px 12px; font-size: 0.92rem; }
+  /* 16px minimum — en dessous le navigateur mobile zoome automatiquement */
+  #address-input { padding: 10px 12px; font-size: 16px; }
 
   .radius-option { padding: 10px 0; font-size: 0.85rem; min-height: 42px; }
 
