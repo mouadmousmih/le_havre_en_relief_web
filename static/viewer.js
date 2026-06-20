@@ -99,8 +99,8 @@
 
   function initGL(canvas) {
     setStatus('Initialisation WebGL...');
-    gl = canvas.getContext('webgl', {antialias:false})
-      || canvas.getContext('experimental-webgl', {antialias:false});
+    gl = canvas.getContext('webgl', {antialias:true})
+      || canvas.getContext('experimental-webgl', {antialias:true});
     if (!gl) { setStatus('WebGL non disponible sur ce navigateur.'); return false; }
 
     prog=gl.createProgram();
@@ -194,22 +194,27 @@
     canvas.addEventListener('touchend', function(){ drag=null; pinch=null; });
   }
 
-  /* ── Taille canvas : calcul explicite, pas via getBoundingClientRect ── */
+  /* ── Taille canvas : résolution native × devicePixelRatio (anti-pixelisation) ── */
   function fitCanvas() {
     var canvas=document.getElementById('viewer-canvas');
     if (!canvas) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2); /* max 2× pour perf mobile */
     var hint = document.querySelector('.viewer-hint');
     var hintH = hint ? hint.offsetHeight : 40;
     var w = window.innerWidth;
-    var h = window.innerHeight - hintH - 48; /* -48 pour la barre de fermeture */
-    /* Sur desktop, le container fait 88vw × 82vh */
+    var h = window.innerHeight - hintH - 48;
     var container = document.querySelector('.viewer-container');
     if (container && container.clientWidth > 0) {
       w = container.clientWidth;
       h = container.clientHeight - hintH;
     }
-    canvas.width  = Math.max(w, 1);
-    canvas.height = Math.max(h, 1);
+    w = Math.max(w, 1); h = Math.max(h, 1);
+    /* Résolution de rendu = CSS pixels × DPR */
+    canvas.width  = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    /* Taille CSS inchangée (le canvas est étiré par CSS) */
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
     if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
   }
   window.addEventListener('resize', fitCanvas);
