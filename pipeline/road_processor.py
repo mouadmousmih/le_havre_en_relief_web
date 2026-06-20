@@ -71,14 +71,7 @@ class RoadProcessor:
                     geoms   = [median_line]
                     is_dual = True
 
-            if name in self.custom_widths:
-                w = self.custom_widths[name]
-            elif is_dual:
-                w = 16.0
-            elif main_type in ["service", "footway", "path", "cycleway"]:
-                w = 3.0
-            else:
-                w = self.width_mm
+            w = self.width_mm
 
             half = w / 2.0
 

@@ -87,14 +87,7 @@ class ReliefPositiveCanal:
                     is_dual = True
                     centerlines.extend(geoms)
 
-            if name in self.custom_widths:
-                total_w = self.custom_widths[name]
-            elif is_dual:
-                total_w = 16.0
-            elif main_type in ["service", "footway", "path", "cycleway"]:
-                total_w = 3.0
-            else:
-                total_w = self.default_width
+            total_w = self.default_width
 
             c_width = max(0.1, total_w - 2 * self.wall_thickness)
 
