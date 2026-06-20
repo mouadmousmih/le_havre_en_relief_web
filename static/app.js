@@ -55,7 +55,7 @@ function updateZoneRect() {
     color: '#3B82F6', weight: 2,
     fillColor: '#3B82F6', fillOpacity: 0.08,
   }).addTo(map);
-  map.fitBounds(bounds, { padding: [100, 100], maxZoom: 14 });
+  map.fitBounds(bounds, { padding: [100, 100], maxZoom: 13 });
 }
 
 function setStep(stepNum) {
