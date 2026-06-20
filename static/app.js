@@ -42,6 +42,10 @@ function getVariant() {
   return document.querySelector('input[name="variant"]:checked').value;
 }
 
+function getServices() {
+  return document.querySelector('input[name="services"]:checked').value;
+}
+
 function makeFilename(displayName, radius, variant) {
   // Garde rue + ville (2 premières parties de Nominatim), normalise en slug
   const parts = (displayName || 'maquette')
@@ -164,6 +168,7 @@ generateBtn.addEventListener('click', () => {
     lat: currentLat, lon: currentLon,
     radius: getRadius(),
     variant: getVariant(),
+    services: getServices(),
   });
 
   const es = new EventSource('/generate?' + params);

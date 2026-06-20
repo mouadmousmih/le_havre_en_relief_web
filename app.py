@@ -32,6 +32,11 @@ ROAD_TYPES = [
     "residential",
 ]
 
+SERVICE_TYPES = [
+    "service", "living_street", "pedestrian",
+    "footway", "path", "cycleway", "track",
+]
+
 
 def sse(event_type: str, **data) -> str:
     return f"data: {json.dumps({'type': event_type, **data})}\n\n"
@@ -99,9 +104,11 @@ def generate():
         lat     = float(request.args["lat"])
         lon     = float(request.args["lon"])
         radius  = int(request.args.get("radius", 200))
-        variant = request.args.get("variant", "v1")
+        variant  = request.args.get("variant", "v1")
         if variant not in ("v1", "v2"):
             variant = "v1"
+        services = request.args.get("services", "non")
+        road_types = ROAD_TYPES + (SERVICE_TYPES if services == "oui" else [])
     except (KeyError, ValueError):
         return jsonify({"error": "Paramètres invalides"}), 400
 
@@ -152,14 +159,14 @@ def generate():
                     canal_width    = 5.0,
                     margin         = 5.0,
                     resolution     = 32,
-                    allowed_types  = ROAD_TYPES,
+                    allowed_types  = road_types,
                     enable_fusion  = True,
                 ).build(roads_proj, bbox_mm, green_cutters=green_cutters)
             else:
                 processor  = RoadProcessor(
                     width_mm      = 8.0,
                     resolution    = 4,
-                    allowed_types = ROAD_TYPES,
+                    allowed_types = road_types,
                     enable_fusion = True,
                 )
                 road_polys = processor.process_and_merge(roads_proj, clip_bbox=bbox_mm)
