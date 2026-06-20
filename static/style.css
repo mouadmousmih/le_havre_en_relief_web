@@ -367,6 +367,18 @@ main {
 }
 .viewer-close:hover { background: rgba(255,255,255,0.2); }
 
+.viewer-status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255,255,255,0.7);
+  font-size: 0.9rem;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 20px;
+}
+
 .viewer-hint {
   padding: 10px;
   text-align: center;
