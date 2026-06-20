@@ -1,6 +1,5 @@
 'use strict';
 
-// Initialise les icônes Lucide dès que le DOM est prêt
 document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
 
 // ── Carte Leaflet ──
@@ -10,9 +9,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
 }).addTo(map);
 
-let zoneRect  = null;
-let currentLat = null;
-let currentLon = null;
+let zoneRect         = null;
+let currentLat       = null;
+let currentLon       = null;
+let currentAddrName  = '';   // nom d'affichage Nominatim pour le nom du fichier
 
 // ── Éléments DOM ──
 const addressInput   = document.getElementById('address-input');
@@ -36,6 +36,28 @@ const errorMsg       = document.getElementById('error-msg');
 
 function getRadius() {
   return parseInt(document.querySelector('input[name="radius"]:checked').value, 10);
+}
+
+function getVariant() {
+  return document.querySelector('input[name="variant"]:checked').value;
+}
+
+function makeFilename(displayName, radius, variant) {
+  // Garde rue + ville (2 premières parties de Nominatim), normalise en slug
+  const parts = (displayName || 'maquette')
+    .split(',')
+    .slice(0, 2)
+    .map(s => s.trim())
+    .join(' ');
+  const slug = parts
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // supprime les accents
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .slice(0, 35);
+  return `${slug || 'maquette'}_${radius}m_${variant}`;
 }
 
 function computeBboxBounds(lat, lon, radiusM) {
@@ -62,7 +84,7 @@ function setStep(stepNum) {
   stepEls.forEach((el) => {
     const n = parseInt(el.dataset.step, 10);
     el.classList.remove('active', 'done');
-    if (n < stepNum)  el.classList.add('done');
+    if (n < stepNum)   el.classList.add('done');
     if (n === stepNum) el.classList.add('active');
   });
   const pct = ((stepNum - 1) / (stepEls.length - 1)) * 100;
@@ -100,8 +122,9 @@ searchBtn.addEventListener('click', async () => {
     const data = await res.json();
 
     if (data.found) {
-      currentLat = data.lat;
-      currentLon = data.lon;
+      currentLat      = data.lat;
+      currentLon      = data.lon;
+      currentAddrName = data.display_name;
       addressResult.textContent = data.display_name;
       addressResult.classList.remove('hidden');
       generateBtn.disabled = false;
@@ -115,15 +138,15 @@ searchBtn.addEventListener('click', async () => {
     addressResult.classList.remove('hidden');
   }
 
-  searchBtn.textContent = 'Chercher';
-  searchBtn.disabled    = false;
+  searchBtn.innerHTML = '<i data-lucide="search"></i> Chercher';
+  searchBtn.disabled  = false;
+  lucide.createIcons();
 });
 
 addressInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') searchBtn.click();
 });
 
-// Mise à jour du rectangle quand le rayon change
 document.querySelectorAll('input[name="radius"]').forEach((radio) => {
   radio.addEventListener('change', updateZoneRect);
 });
@@ -138,7 +161,9 @@ generateBtn.addEventListener('click', () => {
   generateBtn.disabled = true;
 
   const params = new URLSearchParams({
-    lat: currentLat, lon: currentLon, radius: getRadius(),
+    lat: currentLat, lon: currentLon,
+    radius: getRadius(),
+    variant: getVariant(),
   });
 
   const es = new EventSource('/generate?' + params);
@@ -152,14 +177,14 @@ generateBtn.addEventListener('click', () => {
     }
 
     else if (data.type === 'done') {
-      // Toutes les étapes complètes
       stepEls.forEach(el => { el.classList.remove('active'); el.classList.add('done'); });
       progressBar.style.width = '100%';
       progressMsg.textContent = data.msg;
 
+      const filename = makeFilename(currentAddrName, getRadius(), getVariant());
       window._stlViewUrl = '/view/' + data.file;
-      downloadLink.href = '/download/' + data.file;
-      fileInfo.textContent = `${data.dims} — ${data.size_kb} Ko`;
+      downloadLink.href  = '/download/' + data.file + '?name=' + encodeURIComponent(filename);
+      fileInfo.textContent = `${filename}.stl — ${data.dims} — ${data.size_kb} Ko`;
       downloadBlock.classList.remove('hidden');
       generateBtn.disabled = false;
       es.close();

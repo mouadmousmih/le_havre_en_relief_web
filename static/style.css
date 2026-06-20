@@ -158,6 +158,53 @@ main {
 }
 .radius-option:hover:not(:has(input:checked)) { background: #F9F9F9; }
 
+/* ── Variant selector ── */
+.variant-group { display: flex; gap: 8px; }
+
+.variant-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px;
+  border: 1.5px solid #D4D4D8;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.variant-option input { display: none; }
+
+.variant-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #A1A1AA;
+  flex-shrink: 0;
+}
+
+.variant-title {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #222;
+  line-height: 1.2;
+}
+.variant-sub {
+  display: block;
+  font-size: 0.70rem;
+  color: #71717A;
+  margin-top: 2px;
+}
+
+.variant-option:has(input:checked) {
+  border-color: #3B82F6;
+  background: #EFF6FF;
+}
+.variant-option:has(input:checked) .variant-icon  { color: #3B82F6; }
+.variant-option:has(input:checked) .variant-title { color: #2563EB; }
+.variant-option:has(input:checked) .variant-sub   { color: #60A5FA; }
+.variant-option:hover:not(:has(input:checked))    { background: #F9F9F9; }
+
 /* ── Generate button ── */
 .btn-generate {
   padding: 11px;

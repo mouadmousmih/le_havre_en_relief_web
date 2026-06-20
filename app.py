@@ -1,15 +1,6 @@
-"""
-app.py — Backend Flask pour la génération de maquettes tactiles en relief positif.
-
-Routes :
-    GET  /             → page principale
-    GET  /geocode?q=   → traduit une adresse en {lat, lon} via Nominatim
-    GET  /generate?lat=&lon=&radius=  → pipeline + progression SSE
-    GET  /download/<uuid>.stl         → téléchargement du fichier généré
-"""
-
 import json
 import math
+import re
 import uuid
 import os
 import urllib.request
@@ -19,13 +10,13 @@ from pathlib import Path
 
 from flask import Flask, render_template, request, Response, send_file, jsonify
 
-from pipeline.osm_fetcher          import OSMFetcher
-from pipeline.crs_converter        import CRSConverter
-from pipeline.road_processor       import RoadProcessor
-from pipeline.relief_positive      import ReliefPositive
+from pipeline.osm_fetcher           import OSMFetcher
+from pipeline.crs_converter         import CRSConverter
+from pipeline.road_processor        import RoadProcessor
+from pipeline.relief_positive       import ReliefPositive
+from pipeline.relief_positive_canal import ReliefPositiveCanal
 from pipeline.green_areas_processor import GreenAreasProcessor
 
-# ── App ──
 app = Flask(__name__)
 
 OUTPUTS_DIR   = Path(__file__).parent / "outputs"
@@ -42,18 +33,11 @@ ROAD_TYPES = [
 ]
 
 
-# ── Helpers ──
-
 def sse(event_type: str, **data) -> str:
-    """Formate un événement Server-Sent Event."""
     return f"data: {json.dumps({'type': event_type, **data})}\n\n"
 
 
 def compute_bbox(lat: float, lon: float, radius_m: int) -> list:
-    """
-    Bounding box [lon_min, lat_min, lon_max, lat_max] autour d'un point.
-    Utilise une approximation équirectangulaire — précise pour de petits rayons.
-    """
     delta_lat = radius_m / 111_320.0
     delta_lon = radius_m / (111_320.0 * math.cos(math.radians(lat)))
     return [
@@ -62,7 +46,20 @@ def compute_bbox(lat: float, lon: float, radius_m: int) -> list:
     ]
 
 
-# ── Routes ──
+def sanitize_name(raw: str) -> str:
+    """Normalise un nom d'adresse pour en faire un nom de fichier sûr."""
+    # Garde les 2 premières parties séparées par des virgules (rue + ville)
+    parts = [p.strip() for p in raw.split(",")[:2]]
+    joined = " ".join(parts)
+    # Supprime les accents
+    import unicodedata
+    joined = unicodedata.normalize("NFD", joined)
+    joined = "".join(c for c in joined if unicodedata.category(c) != "Mn")
+    # Garde uniquement alphanumériques + espaces, remplace espaces par _
+    joined = re.sub(r"[^a-zA-Z0-9\s]", "", joined).strip()
+    joined = re.sub(r"\s+", "_", joined).lower()
+    return joined[:40] or "maquette"
+
 
 @app.route("/")
 def index():
@@ -99,19 +96,22 @@ def geocode():
 @app.route("/generate")
 def generate():
     try:
-        lat    = float(request.args["lat"])
-        lon    = float(request.args["lon"])
-        radius = int(request.args.get("radius", 200))
+        lat     = float(request.args["lat"])
+        lon     = float(request.args["lon"])
+        radius  = int(request.args.get("radius", 200))
+        variant = request.args.get("variant", "v1")
+        if variant not in ("v1", "v2"):
+            variant = "v1"
     except (KeyError, ValueError):
         return jsonify({"error": "Paramètres invalides"}), 400
 
     def stream():
         try:
-            # 1 ── Calcul de la zone
+            # 1 — Calcul de la zone
             yield sse("progress", step=1, total=5, msg="Calcul de la zone...")
             bbox = compute_bbox(lat, lon, radius)
 
-            # 2 ── Téléchargement OSM
+            # 2 — Téléchargement OSM
             yield sse("progress", step=2, total=5, msg="Téléchargement des données OSM...")
             fetcher = OSMFetcher()
             roads, _, green_areas = fetcher.fetch(
@@ -121,7 +121,7 @@ def generate():
                 yield sse("error", msg="Aucune route trouvée dans cette zone.")
                 return
 
-            # 3 ── Projection des coordonnées
+            # 3 — Projection des coordonnées
             yield sse("progress", step=3, total=5, msg="Projection des coordonnées...")
             converter  = CRSConverter(scale=1000)
             roads_proj = converter.convert(roads, bbox)
@@ -131,29 +131,43 @@ def generate():
             if green_areas:
                 green_proj = converter.convert_green_areas(green_areas, include_ids=None)
 
-            # 4 ── Traitement des routes
-            yield sse("progress", step=4, total=5, msg="Traitement des routes...")
-            processor  = RoadProcessor(
-                width_mm      = 8.0,
-                resolution    = 4,
-                allowed_types = ROAD_TYPES,
-                enable_fusion = True,
-            )
-            road_polys = processor.process_and_merge(roads_proj, clip_bbox=bbox_mm)
+            # 4 — Traitement des routes
+            variant_label = "V2 — Canaux" if variant == "v2" else "V1 — Relief positif"
+            yield sse("progress", step=4, total=5, msg=f"Traitement des routes ({variant_label})...")
 
             green_cutters = []
             if green_proj:
-                gap           = GreenAreasProcessor(depth_mm=1.2)
-                green_polys   = gap.process(green_proj, bbox_mm)
+                gap         = GreenAreasProcessor(depth_mm=1.2)
+                green_polys = gap.process(green_proj, bbox_mm)
                 green_cutters = gap.build_cutters(green_polys, base_thickness=2.5)
 
-            # 5 ── Génération du maillage
-            yield sse("progress", step=5, total=5, msg="Génération du maillage 3D...")
-            mesh = ReliefPositive(
-                base_thickness = 2.5,
-                road_height    = 2.5,
-                margin         = 5.0,
-            ).build(road_polys, bbox_mm, green_cutters=green_cutters)
+            # 5 — Génération du maillage
+            yield sse("progress", step=5, total=5, msg=f"Génération du maillage 3D ({variant_label})...")
+
+            if variant == "v2":
+                mesh = ReliefPositiveCanal(
+                    base_thickness = 2.5,
+                    wall_height    = 2.5,
+                    wall_thickness = 1.5,
+                    canal_width    = 5.0,
+                    margin         = 5.0,
+                    resolution     = 32,
+                    allowed_types  = ROAD_TYPES,
+                    enable_fusion  = True,
+                ).build(roads_proj, bbox_mm, green_cutters=green_cutters)
+            else:
+                processor  = RoadProcessor(
+                    width_mm      = 8.0,
+                    resolution    = 4,
+                    allowed_types = ROAD_TYPES,
+                    enable_fusion = True,
+                )
+                road_polys = processor.process_and_merge(roads_proj, clip_bbox=bbox_mm)
+                mesh = ReliefPositive(
+                    base_thickness = 2.5,
+                    road_height    = 2.5,
+                    margin         = 5.0,
+                ).build(road_polys, bbox_mm, green_cutters=green_cutters)
 
             filename = f"{uuid.uuid4().hex}.stl"
             out_path = OUTPUTS_DIR / filename
@@ -181,7 +195,6 @@ def generate():
 
 @app.route("/view/<filename>")
 def view_stl(filename):
-    """Sert le STL sans en-tête attachment — pour le chargement Three.js."""
     name = filename.removesuffix(".stl")
     if not (len(name) == 32 and all(c in "0123456789abcdef" for c in name)):
         return "Nom de fichier invalide", 400
@@ -193,14 +206,16 @@ def view_stl(filename):
 
 @app.route("/download/<filename>")
 def download(filename):
-    # Sécurité : on n'accepte que les noms au format UUID hex + .stl
     name = filename.removesuffix(".stl")
     if not (len(name) == 32 and all(c in "0123456789abcdef" for c in name)):
         return "Nom de fichier invalide", 400
     path = OUTPUTS_DIR / filename
     if not path.exists():
         return "Fichier introuvable", 404
-    return send_file(str(path), as_attachment=True, download_name="maquette_tactile.stl")
+    # Nom d'affichage optionnel passé par le frontend
+    display = request.args.get("name", "maquette_tactile")
+    display = re.sub(r"[^a-z0-9_\-]", "", display.lower())[:60] or "maquette_tactile"
+    return send_file(str(path), as_attachment=True, download_name=display + ".stl")
 
 
 if __name__ == "__main__":
