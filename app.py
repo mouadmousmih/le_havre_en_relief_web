@@ -28,6 +28,7 @@ from pipeline.green_areas_processor import GreenAreasProcessor
 app = Flask(__name__)
 
 OUTPUTS_DIR   = Path(__file__).parent / "outputs"
+OUTPUTS_DIR.mkdir(exist_ok=True)
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 ROAD_TYPES = [
