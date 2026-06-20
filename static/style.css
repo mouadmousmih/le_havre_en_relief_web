@@ -1,6 +1,8 @@
 /* ── Reset & base ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { overflow-x: hidden; }
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   background: #F4F4F5;
@@ -8,6 +10,7 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
 /* ── Header ── */
@@ -95,6 +98,7 @@ main {
 
 #address-input {
   flex: 1;
+  min-width: 0;
   padding: 9px 12px;
   border: 1px solid #D4D4D8;
   border-radius: 7px;
