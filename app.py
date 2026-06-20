@@ -165,7 +165,6 @@ def generate():
             else:
                 processor  = RoadProcessor(
                     width_mm      = 8.0,
-                    resolution    = 4,
                     allowed_types = road_types,
                     enable_fusion = True,
                 )

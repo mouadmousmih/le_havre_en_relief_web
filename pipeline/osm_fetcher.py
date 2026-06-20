@@ -67,6 +67,7 @@ out geom;
                         "id"          : osm_id,
                         "name"        : tags.get("name", ""),
                         "type"        : tags.get("highway", "unclassified"),
+                        "junction"    : tags.get("junction", ""),
                         "coordinates" : coords,
                     })
 
