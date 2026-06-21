@@ -41,13 +41,21 @@ class RoadProcessor:
             clip = sbox(clip_bbox["min_x"], clip_bbox["min_y"],
                         clip_bbox["max_x"], clip_bbox["max_y"])
 
-        # Regroupement par nom (chaque segment anonyme = groupe propre)
+        # Regroupement par nom.
+        # Les routes de service (footway, service…) vont toujours dans un groupe
+        # anonyme (par ID OSM), même si elles ont un nom, pour éviter qu'elles
+        # soient mélangées aux voies principales du même axe (ex. Avenue Foch).
         groups = {}
         for road in roads:
-            if self.allowed_types and road.get("type", "unclassified") not in self.allowed_types:
+            r_type = road.get("type", "unclassified")
+            if self.allowed_types and r_type not in self.allowed_types:
                 continue
-            name = road.get("name", "").strip().lower() or f"unnamed_{road.get('id', '')}"
-            groups.setdefault(name, []).append(road)
+            r_name = road.get("name", "").strip().lower()
+            if r_type in SERVICE_TYPES or not r_name:
+                key = f"unnamed_{road.get('id', '')}"
+            else:
+                key = r_name
+            groups.setdefault(key, []).append(road)
 
         polygons = []
         half = self.width_mm / 2.0
@@ -137,9 +145,19 @@ class RoadProcessor:
         return 0.4 <= ratio <= 2.5
 
     def _roundabout_disc(self, geom: LineString, half: float) -> Polygon:
-        """Remplace l'anneau d'un rond-point par un disque plein centré."""
+        """
+        Remplace l'anneau d'un rond-point par une intersection pleine :
+        on remplit l'intérieur du ring, puis on l'étend d'une demi-largeur de rue.
+        Résultat : zone solide où toutes les rues convergent, sans donut.
+        """
+        coords = list(geom.coords)
+        if len(coords) >= 3:
+            interior = Polygon(coords)
+            if interior.is_valid and not interior.is_empty and interior.area > 0:
+                return interior.buffer(half, resolution=32)
+        # Fallback : disque centroïde si le polygone est invalide
         center = geom.centroid
-        radius = geom.length / (2 * math.pi)   # périmètre / 2π ≈ rayon
+        radius = geom.length / (2 * math.pi)
         return center.buffer(radius + half, resolution=32)
 
     # ── Fusion double-voie ─────────────────────────────────────────────────
