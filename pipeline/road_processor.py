@@ -12,22 +12,19 @@ class RoadProcessor:
 
     def __init__(
         self,
-        width_mm:          float = 8.0,
-        resolution:        int   = 16,       # segments/90° — 16 = courbes lisses
-        allowed_types:     list  = None,
-        custom_widths:     dict  = None,
-        enable_fusion:     bool  = True,
-        min_length_mm:     float = 3.0,      # longueur min routes principales
-        min_length_svc_mm: float = 20.0,     # longueur min routes secondaires
+        width_mm:      float = 8.0,
+        resolution:    int   = 16,
+        allowed_types: list  = None,
+        custom_widths: dict  = None,
+        enable_fusion: bool  = True,
     ):
-        self.width_mm          = width_mm
-        self.resolution        = resolution
-        self.allowed_types     = set(allowed_types) if allowed_types else None
-        self.enable_fusion     = enable_fusion
-        self.custom_widths     = {k.lower(): v for k, v in (custom_widths or {}).items()}
-        self.min_length_mm     = min_length_mm
-        self.min_length_svc_mm = min_length_svc_mm
+        self.width_mm      = width_mm
+        self.resolution    = resolution
+        self.allowed_types = set(allowed_types) if allowed_types else None
+        self.enable_fusion = enable_fusion
+        self.custom_widths = {k.lower(): v for k, v in (custom_widths or {}).items()}
         print(f"[RoadProcessor] Largeur standard : {width_mm}mm  résolution : {resolution}")
+        print(f"[RoadProcessor] Fusion doubles voies : {'OUI' if enable_fusion else 'NON'}")
 
     # ── Pipeline principal ──────────────────────────────────────────────────
 
@@ -39,24 +36,20 @@ class RoadProcessor:
             clip = sbox(clip_bbox["min_x"], clip_bbox["min_y"],
                         clip_bbox["max_x"], clip_bbox["max_y"])
 
-        # Regroupement par nom.
-        # Les routes de service (footway, service…) vont toujours dans un groupe
-        # anonyme (par ID OSM), même si elles ont un nom, pour éviter qu'elles
-        # soient mélangées aux voies principales du même axe (ex. Avenue Foch).
-        groups = {}
+        # Regroupement par nom — même logique que tpe-maquette-tactile-lh
+        groups  = {}
+        filtered = 0
         for road in roads:
             r_type = road.get("type", "unclassified")
             if self.allowed_types and r_type not in self.allowed_types:
+                filtered += 1
                 continue
-            r_name = road.get("name", "").strip().lower()
-            if r_type in SERVICE_TYPES or not r_name or road.get("junction") == "roundabout":
-                key = f"unnamed_{road.get('id', '')}"
-            else:
-                key = r_name
-            groups.setdefault(key, []).append(road)
+            name = road.get("name", "").strip().lower()
+            if not name:
+                name = f"unnamed_{road.get('id', '')}"
+            groups.setdefault(name, []).append(road)
 
         polygons = []
-        half = self.width_mm / 2.0
 
         for name, road_list in groups.items():
             lines, road_types = [], []
@@ -69,37 +62,53 @@ class RoadProcessor:
             if not lines:
                 continue
 
-            main_type   = road_types[0] if road_types else "unclassified"
-            is_service  = main_type in SERVICE_TYPES
-            min_len     = self.min_length_svc_mm if is_service else self.min_length_mm
+            main_type = road_types[0] if road_types else "unclassified"
 
             merged = linemerge(lines)
             geoms  = [merged] if isinstance(merged, LineString) else list(merged.geoms)
-
-            # Filtre longueur minimale (élimine les micro-segments)
-            geoms = [g for g in geoms if g.length >= min_len]
+            geoms  = [g for g in geoms if g.length > 2.0]
             if not geoms:
                 continue
 
-            # Fusion double-voie (routes principales nommées uniquement)
+            is_dual = False
+
+            # Fusion double-voie : routes nommées principales uniquement
             if (self.enable_fusion
-                    and not is_service
+                    and main_type not in SERVICE_TYPES
                     and len(geoms) > 1
                     and not name.startswith("unnamed_")):
                 median = self._compute_centerline(geoms)
                 if median:
-                    geoms = [median]
+                    geoms   = [median]
+                    is_dual = True
+
+            # Largeur selon le type
+            if name in self.custom_widths:
+                w = self.custom_widths[name]
+            elif is_dual:
+                w = 16.0
+            elif main_type in SERVICE_TYPES:
+                w = 3.0
+            else:
+                w = self.width_mm
+
+            half = w / 2.0
 
             for geom in geoms:
+                # Filet de sécurité : exclure les anneaux fermés résiduels
+                if geom.is_ring:
+                    continue
                 poly = geom.buffer(half, cap_style=1, join_style=2,
                                    resolution=self.resolution)
-
                 if clip is not None:
                     poly = poly.intersection(clip)
                 if poly is not None and not poly.is_empty:
                     if not poly.is_valid:
                         poly = make_valid(poly)
                     polygons.extend(self._flatten(poly))
+
+        if filtered:
+            print(f"[RoadProcessor] {filtered} routes exclues (type non autorisé)")
 
         final_union = unary_union(polygons)
         result      = self._flatten(final_union)
