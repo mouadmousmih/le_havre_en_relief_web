@@ -63,11 +63,14 @@ out geom;
                 coords = [[n["lon"], n["lat"]] for n in el.get("geometry", [])]
 
                 if "highway" in tags and len(coords) >= 2:
+                    # Exclure les ronds-points (anneaux fermés) — on veut
+                    # des intersections simples, pas des cercles.
+                    if tags.get("junction") == "roundabout":
+                        continue
                     roads.append({
                         "id"          : osm_id,
                         "name"        : tags.get("name", ""),
                         "type"        : tags.get("highway", "unclassified"),
-                        "junction"    : tags.get("junction", ""),
                         "coordinates" : coords,
                     })
 
