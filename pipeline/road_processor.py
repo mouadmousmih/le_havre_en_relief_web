@@ -49,7 +49,7 @@ class RoadProcessor:
             if self.allowed_types and r_type not in self.allowed_types:
                 continue
             r_name = road.get("name", "").strip().lower()
-            if r_type in SERVICE_TYPES or not r_name:
+            if r_type in SERVICE_TYPES or not r_name or road.get("junction") == "roundabout":
                 key = f"unnamed_{road.get('id', '')}"
             else:
                 key = r_name
@@ -91,11 +91,12 @@ class RoadProcessor:
                     geoms = [median]
 
             for geom in geoms:
-                # Sauter les anneaux fermés résiduels (ronds-points non tagués)
                 if geom.is_ring:
-                    continue
-                poly = geom.buffer(half, cap_style=1, join_style=2,
-                                   resolution=self.resolution)
+                    # Rond-point : disque plein à partir du périmètre OSM
+                    poly = geom.convex_hull
+                else:
+                    poly = geom.buffer(half, cap_style=1, join_style=2,
+                                       resolution=self.resolution)
 
                 if clip is not None:
                     poly = poly.intersection(clip)
