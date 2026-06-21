@@ -91,12 +91,8 @@ class RoadProcessor:
                     geoms = [median]
 
             for geom in geoms:
-                if geom.is_ring:
-                    # Rond-point : disque plein à partir du périmètre OSM
-                    poly = geom.convex_hull
-                else:
-                    poly = geom.buffer(half, cap_style=1, join_style=2,
-                                       resolution=self.resolution)
+                poly = geom.buffer(half, cap_style=1, join_style=2,
+                                   resolution=self.resolution)
 
                 if clip is not None:
                     poly = poly.intersection(clip)
