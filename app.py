@@ -156,7 +156,7 @@ def generate():
                     base_thickness = 2.5,
                     wall_height    = 2.5,
                     wall_thickness = 1.5,
-                    canal_width    = 5.0,
+                    canal_width    = 6.5,
                     margin         = 5.0,
                     resolution     = 32,
                     allowed_types  = road_types,
@@ -164,7 +164,7 @@ def generate():
                 ).build(roads_proj, bbox_mm, green_cutters=green_cutters)
             else:
                 processor  = RoadProcessor(
-                    width_mm      = 8.0,
+                    width_mm      = 10.0,
                     allowed_types = road_types,
                     enable_fusion = True,
                 )
